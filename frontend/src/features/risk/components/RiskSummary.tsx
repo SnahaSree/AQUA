@@ -1,135 +1,106 @@
 import {
   Activity,
-  CloudRain,
-  Droplets,
-  Gauge,
-  TrendingUp,
+  Radio,
+  ShieldAlert,
 } from "lucide-react";
 
-import type { RiverRiskPoint } from "../data/riskData";
-
 interface RiskSummaryProps {
-  point: RiverRiskPoint;
+  averageRisk: number;
+  stationsOnline: number;
+  activeSignals: number;
 }
 
-export function RiskSummary({ point }: RiskSummaryProps) {
-  const distanceToDanger = (
-    point.dangerLevel - point.waterLevel
-  ).toFixed(2);
+function getRiskLabel(
+  score: number,
+): string {
+  if (score >= 80) {
+    return "Critical";
+  }
+
+  if (score >= 60) {
+    return "High";
+  }
+
+  if (score >= 30) {
+    return "Moderate";
+  }
+
+  return "Low";
+}
+
+export function RiskSummary({
+  averageRisk,
+  stationsOnline,
+  activeSignals,
+}: RiskSummaryProps) {
+  const cards = [
+    {
+      label: "Average risk",
+      value: averageRisk,
+      suffix: "/100",
+      icon: Activity,
+      description: getRiskLabel(
+        averageRisk,
+      ),
+    },
+    {
+      label: "Stations online",
+      value: stationsOnline,
+      suffix: "",
+      icon: Radio,
+      description:
+        "Connected monitoring stations",
+    },
+    {
+      label: "Active signals",
+      value: activeSignals,
+      suffix: "",
+      icon: ShieldAlert,
+      description:
+        "High or critical predictions",
+    },
+  ];
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-slate-400">
-            Selected station
-          </p>
+    <div className="grid gap-4 md:grid-cols-3">
+      {cards.map((card) => {
+        const Icon = card.icon;
 
-          <h3 className="mt-1 text-2xl font-semibold text-white">
-            {point.river}
-          </h3>
-
-          <p className="text-sm text-slate-400">
-            {point.location}
-          </p>
-        </div>
-
-        <div className="text-right">
-          <p className="text-xs uppercase tracking-wider text-slate-500">
-            Risk score
-          </p>
-
-          <p className="text-4xl font-bold text-white">
-            {point.riskScore}
-          </p>
-
-          <p className="text-xs capitalize text-orange-300">
-            {point.riskLevel} risk
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-6">
-        <div className="mb-2 flex justify-between text-xs text-slate-400">
-          <span>Current risk</span>
-          <span>{point.riskScore}%</span>
-        </div>
-
-        <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        return (
           <div
-            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-yellow-400 to-red-500"
-            style={{ width: `${point.riskScore}%` }}
-          />
-        </div>
-      </div>
+            key={card.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                {card.label}
+              </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3">
-        <Stat
-          icon={<Droplets size={17} />}
-          label="Water level"
-          value={`${point.waterLevel} m`}
-        />
+              <Icon
+                size={18}
+                className="text-cyan-500"
+                aria-hidden="true"
+              />
+            </div>
 
-        <Stat
-          icon={<Gauge size={17} />}
-          label="Danger level"
-          value={`${point.dangerLevel} m`}
-        />
+            <div className="mt-4 flex items-baseline gap-1">
+              <span className="text-3xl font-semibold text-slate-950 dark:text-white">
+                {card.value}
+              </span>
 
-        <Stat
-          icon={<CloudRain size={17} />}
-          label="Rainfall"
-          value={`${point.rainfall} mm`}
-        />
+              {card.suffix && (
+                <span className="text-sm text-slate-500">
+                  {card.suffix}
+                </span>
+              )}
+            </div>
 
-        <Stat
-          icon={<Activity size={17} />}
-          label="Flow rate"
-          value={`${point.flowRate.toLocaleString()} m³/s`}
-        />
-      </div>
-
-      <div className="mt-4 flex items-center gap-2 rounded-xl bg-white/[0.04] px-4 py-3 text-sm">
-        <TrendingUp
-          size={17}
-          className={
-            point.trend === "rising"
-              ? "text-orange-400"
-              : "text-emerald-400"
-          }
-        />
-
-        <span className="text-slate-300">
-          {point.trend === "rising"
-            ? `${distanceToDanger} m below danger level`
-            : "Conditions currently stable"}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4">
-      <div className="flex items-center gap-2 text-cyan-300">
-        {icon}
-        <span className="text-xs text-slate-400">
-          {label}
-        </span>
-      </div>
-
-      <p className="mt-2 text-sm font-semibold text-white">
-        {value}
-      </p>
+            <p className="mt-2 text-xs text-slate-500">
+              {card.description}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

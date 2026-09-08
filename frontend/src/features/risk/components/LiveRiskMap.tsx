@@ -1,84 +1,251 @@
 import {
   MapContainer,
+  Marker,
+  Popup,
   TileLayer,
-  ZoomControl,
+  useMap,
 } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 
-import { riverRiskData } from "../data/riskData";
-import { RiskMarker } from "./RiskMarker";
+import {
+  useEffect,
+  useMemo,
+} from "react";
+
+import L from "leaflet";
+
+import type { RiskStation } from "../utils/risk.utils";
+
+import {
+  getRiskColor,
+  getRiskLabel,
+} from "../utils/risk.utils";
 
 interface LiveRiskMapProps {
-  onSelectPoint: (pointId: string) => void;
+  stations: RiskStation[];
+  selectedSensorId: string | null;
+  onSelectSensor: (
+    sensorId: string,
+  ) => void;
+}
+
+interface MapFocusProps {
+  station: RiskStation | null;
+}
+
+function MapFocus({
+  station,
+}: MapFocusProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!station) {
+      return;
+    }
+
+    map.flyTo(
+      [station.lat, station.lng],
+      9,
+      {
+        duration: 0.8,
+      },
+    );
+  }, [map, station]);
+
+  return null;
+}
+
+function createRiskIcon(
+  station: RiskStation,
+) {
+  const color = getRiskColor(
+    station.riskLevel,
+  );
+
+  const size =
+    station.riskLevel === "critical"
+      ? 24
+      : station.riskLevel === "high"
+        ? 22
+        : 19;
+
+  return L.divIcon({
+    className: "aqua-risk-marker",
+
+    html: `
+      <div
+        style="
+          width:${size}px;
+          height:${size}px;
+          border-radius:50%;
+          background:${color};
+          border:3px solid white;
+          box-shadow:
+            0 0 0 5px ${color}33,
+            0 0 20px ${color}99;
+        "
+      ></div>
+    `,
+
+    iconSize: [
+      size,
+      size,
+    ],
+
+    iconAnchor: [
+      size / 2,
+      size / 2,
+    ],
+
+    popupAnchor: [
+      0,
+      -(size / 2),
+    ],
+  });
 }
 
 export function LiveRiskMap({
-  onSelectPoint,
+  stations,
+  selectedSensorId,
+  onSelectSensor,
 }: LiveRiskMapProps) {
+  const validStations = useMemo(
+    () =>
+      stations.filter(
+        (station) =>
+          Number.isFinite(
+            station.lat,
+          ) &&
+          Number.isFinite(
+            station.lng,
+          ),
+      ),
+    [stations],
+  );
+
+  const selectedStation =
+    validStations.find(
+      (station) =>
+        station.sensorId ===
+        selectedSensorId,
+    ) ?? null;
+
   return (
-    <div className="relative h-[520px] overflow-hidden rounded-3xl border border-white/10 bg-slate-950">
+    <div className="relative h-[520px] overflow-hidden rounded-3xl border border-[var(--aqua-border)] bg-slate-950 shadow-xl">
       <MapContainer
-        center={[24.3, 90.5]}
+        center={[
+          23.8,
+          90.4,
+        ]}
         zoom={7}
         scrollWheelZoom
-        zoomControl={false}
         className="h-full w-full"
       >
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <ZoomControl position="bottomright" />
+        <MapFocus
+          station={selectedStation}
+        />
 
-        {riverRiskData.map((point) => (
-          <RiskMarker
-            key={point.id}
-            point={point}
-            onSelect={() => onSelectPoint(point.id)}
-          />
-        ))}
+        {validStations.map(
+          (station) => (
+            <Marker
+              key={
+                station.sensorId
+              }
+              position={[
+                station.lat,
+                station.lng,
+              ]}
+              icon={createRiskIcon(
+                station,
+              )}
+              eventHandlers={{
+                click: () =>
+                  onSelectSensor(
+                    station.sensorId,
+                  ),
+              }}
+            >
+              <Popup>
+                <div className="min-w-[190px]">
+                  <p className="font-semibold">
+                    {station.river}
+                  </p>
+
+                  <p className="text-sm">
+                    {station.location}
+                  </p>
+
+                  <div className="mt-3 space-y-1 text-sm">
+                    <p>
+                      Risk:{" "}
+                      <strong>
+                        {
+                          station.riskScore
+                        }
+                      </strong>
+                    </p>
+
+                    <p>
+                      Level:{" "}
+                      <strong>
+                        {getRiskLabel(
+                          station.riskLevel,
+                        )}
+                      </strong>
+                    </p>
+
+                    <p>
+                      Water level:{" "}
+                      {
+                        station.waterLevel
+                      }
+                    </p>
+
+                    <p>
+                      Rainfall:{" "}
+                      {
+                        station.rainfall
+                      }
+                    </p>
+
+                    <p>
+                      Flow rate:{" "}
+                      {
+                        station.flowRate
+                      }
+                    </p>
+
+                    <p>
+                      Battery:{" "}
+                      {
+                        station.batteryLevel
+                      }
+                      %
+                    </p>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          ),
+        )}
       </MapContainer>
 
-      <div className="pointer-events-none absolute left-5 top-5 z-[1000] rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 shadow-xl backdrop-blur-xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+      <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-2xl border border-white/10 bg-slate-950/85 px-4 py-3 text-white shadow-lg backdrop-blur-md">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
           Live intelligence
         </p>
 
-        <p className="mt-1 text-sm text-white">
-          Bangladesh river network
+        <p className="mt-1 text-sm font-semibold">
+          {
+            validStations.length
+          }{" "}
+          monitoring stations
         </p>
       </div>
-
-      <div className="absolute bottom-5 left-5 z-[1000] rounded-2xl border border-white/10 bg-slate-950/90 p-4 backdrop-blur-xl">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-300">
-          Risk level
-        </p>
-
-        <div className="grid grid-cols-2 gap-3 text-xs text-slate-200">
-          <Legend color="bg-emerald-500" label="Low" />
-          <Legend color="bg-yellow-400" label="Moderate" />
-          <Legend color="bg-orange-500" label="High" />
-          <Legend color="bg-red-500" label="Critical" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Legend({
-  color,
-  label,
-}: {
-  color: string;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={`h-2.5 w-2.5 rounded-full ${color}`}
-      />
-      {label}
     </div>
   );
 }

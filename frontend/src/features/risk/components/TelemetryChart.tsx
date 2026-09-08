@@ -1,98 +1,206 @@
 import {
-  Area,
-  AreaChart,
+  useEffect,
+  useState,
+} from "react";
+
+import {
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-const telemetry = [
-  { time: "06:00", level: 17.8 },
-  { time: "08:00", level: 18.1 },
-  { time: "10:00", level: 18.4 },
-  { time: "12:00", level: 18.7 },
-  { time: "14:00", level: 19.0 },
-  { time: "16:00", level: 19.2 },
-  { time: "18:00", level: 19.42 },
-];
+import { getSensorReadings } from "../api/riskApi";
+import type { SensorReading } from "../types/risk.types";
 
-export function TelemetryChart() {
+interface TelemetryChartProps {
+  sensorId: string | null;
+}
+
+interface ChartPoint {
+  time: string;
+  waterLevel: number;
+  rainfall: number;
+}
+
+export function TelemetryChart({
+  sensorId,
+}: TelemetryChartProps) {
+  const [readings, setReadings] =
+    useState<SensorReading[]>([]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sensorId) {
+      setReadings([]);
+      return;
+    }
+
+    const controller =
+      new AbortController();
+
+    async function loadReadings() {
+      try {
+        setLoading(true);
+        setError(null);
+
+            const currentSensorId = sensorId;
+
+    if (!currentSensorId) {
+      return;
+    }
+
+
+        const response =
+          await getSensorReadings(
+            currentSensorId,
+            {
+              page: 1,
+              limit: 20,
+            },
+            controller.signal,
+          );
+
+        setReadings(
+          [...response.data].reverse(),
+        );
+      } catch (err) {
+        if (
+          err instanceof DOMException &&
+          err.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load telemetry.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadReadings();
+
+    return () => {
+      controller.abort();
+    };
+  }, [sensorId]);
+
+  const data: ChartPoint[] =
+    readings.map((reading) => ({
+      time: new Date(
+        reading.recordedAt,
+      ).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      waterLevel: reading.waterLevel,
+      rainfall: reading.rainfall,
+    }));
+
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
-          River telemetry
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-400">
+          Telemetry
         </p>
 
-        <h3 className="mt-1 text-xl font-semibold text-white">
-          Water level trend
+        <h3 className="mt-2 font-semibold text-slate-950 dark:text-white">
+          Water & rainfall trend
         </h3>
+
+        <p className="mt-1 text-xs text-slate-500">
+          {sensorId ?? "Select a monitoring station"}
+        </p>
       </div>
 
-      <div className="h-[260px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={telemetry}>
-            <defs>
-              <linearGradient
-                id="waterGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop
-                  offset="5%"
-                  stopColor="#22d3ee"
-                  stopOpacity={0.4}
-                />
-
-                <stop
-                  offset="95%"
-                  stopColor="#22d3ee"
-                  stopOpacity={0}
-                />
-              </linearGradient>
-            </defs>
-
-            <CartesianGrid
-              stroke="rgba(255,255,255,0.08)"
-              vertical={false}
+      <div className="h-[350px]">
+        {!sensorId ? (
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">
+            Select a station to view telemetry.
+          </div>
+        ) : loading ? (
+          <div className="flex h-full items-center justify-center">
+            <div
+              className="h-7 w-7 animate-spin rounded-full border-2 border-slate-300 border-t-cyan-500"
+              aria-label="Loading telemetry"
             />
-
-            <XAxis
-              dataKey="time"
-              stroke="#64748b"
-              tickLine={false}
-              axisLine={false}
-            />
-
-            <YAxis
-              stroke="#64748b"
-              tickLine={false}
-              axisLine={false}
-              width={42}
-            />
-
-            <Tooltip
-              contentStyle={{
-                background: "#0f172a",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "12px",
-                color: "#fff",
+          </div>
+        ) : error ? (
+          <div className="flex h-full items-center justify-center text-center text-sm text-red-500">
+            {error}
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">
+            No telemetry readings available.
+          </div>
+        ) : (
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+          >
+            <LineChart
+              data={data}
+              margin={{
+                top: 8,
+                right: 8,
+                left: -20,
+                bottom: 8,
               }}
-            />
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+              />
 
-            <Area
-              type="monotone"
-              dataKey="level"
-              stroke="#22d3ee"
-              strokeWidth={2}
-              fill="url(#waterGradient)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+              <XAxis
+                dataKey="time"
+                tick={{
+                  fontSize: 10,
+                }}
+              />
+
+              <YAxis
+                tick={{
+                  fontSize: 10,
+                }}
+              />
+
+              <Tooltip />
+
+              <Line
+                type="monotone"
+                dataKey="waterLevel"
+                name="Water level"
+                stroke="currentColor"
+                className="text-cyan-500"
+                strokeWidth={2}
+                dot={false}
+              />
+
+              <Line
+                type="monotone"
+                dataKey="rainfall"
+                name="Rainfall"
+                stroke="currentColor"
+                className="text-indigo-500"
+                strokeWidth={2}
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

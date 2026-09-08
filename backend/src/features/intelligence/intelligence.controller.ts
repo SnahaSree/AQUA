@@ -97,37 +97,48 @@ export class IntelligenceController {
   }
 
   async getReadings(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const query = readingQuerySchema.parse(req.query);
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const query = readingQuerySchema.parse(req.query);
+    const params = req.params;
 
-      const result =
-        await intelligenceService.getReadings(
-          {
-            river: query.river,
-            sensorId: query.sensorId,
-            from: query.from,
-            to: query.to,
-          },
-          {
-            page: query.page,
-            limit: query.limit,
-          },
-        );
+    const sensorId =
+      typeof params.sensorId === "string"
+        ? params.sensorId
+        : query.sensorId;
 
-      res.json({
-        success: true,
-        data: result.items,
-        pagination: result.pagination,
+    if (params.sensorId) {
+      sensorIdParamSchema.parse({
+        sensorId: params.sensorId,
       });
-    } catch (error) {
-      next(error);
     }
-  }
 
+    const result =
+      await intelligenceService.getReadings(
+        {
+          river: query.river,
+          sensorId,
+          from: query.from,
+          to: query.to,
+        },
+        {
+          page: query.page,
+          limit: query.limit,
+        },
+      );
+
+    res.json({
+      success: true,
+      data: result.items,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
   async getRivers(
     _req: Request,
     res: Response,

@@ -1,34 +1,124 @@
-import { useMemo, useState } from "react";
-import { riverRiskData } from "../data/riskData";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-export function useRiskData() {
-  const [selectedRiver, setSelectedRiver] = useState("All Rivers");
+import {
+  getLatestPredictions,
+  getSensors,
+} from "../api/riskApi";
 
-  const filteredData = useMemo(() => {
-    if (selectedRiver === "All Rivers") {
-      return riverRiskData;
-    }
+import type {
+  RiskPrediction,
+  SensorReading,
+} from "../types/risk.types";
 
-    return riverRiskData.filter(
-      (point) => point.river === selectedRiver,
-    );
-  }, [selectedRiver]);
+interface UseRiskDataResult {
+  sensors: SensorReading[];
+  predictions: RiskPrediction[];
+  loading: boolean;
+  refreshing: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+  refresh: () => Promise<void>;
+}
 
-  const averageRisk = useMemo(() => {
-    if (!filteredData.length) return 0;
+const REFRESH_INTERVAL = 60_000;
 
-    return Math.round(
-      filteredData.reduce(
-        (sum, point) => sum + point.riskScore,
-        0,
-      ) / filteredData.length,
-    );
-  }, [filteredData]);
+export function useRiskData(): UseRiskDataResult {
+  const [sensors, setSensors] = useState<
+    SensorReading[]
+  >([]);
+
+  const [predictions, setPredictions] =
+    useState<RiskPrediction[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [lastUpdated, setLastUpdated] =
+    useState<Date | null>(null);
+
+  const loadData = useCallback(
+    async (isInitialLoad: boolean) => {
+      try {
+        if (isInitialLoad) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
+
+        setError(null);
+
+        const [
+          sensorsResponse,
+          predictionsResponse,
+        ] = await Promise.all([
+          getSensors({
+            page: 1,
+            limit: 100,
+          }),
+
+          getLatestPredictions(),
+        ]);
+
+        setSensors(sensorsResponse.data);
+        setPredictions(
+          predictionsResponse.data,
+        );
+
+        setLastUpdated(new Date());
+      } catch (err) {
+        if (
+          err instanceof DOMException &&
+          err.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to load intelligence data.",
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void loadData(true);
+
+    const interval = window.setInterval(() => {
+      void loadData(false);
+    }, REFRESH_INTERVAL);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [loadData]);
+
+  const refresh = useCallback(async () => {
+    await loadData(false);
+  }, [loadData]);
 
   return {
-    selectedRiver,
-    setSelectedRiver,
-    filteredData,
-    averageRisk,
+    sensors,
+    predictions,
+    loading,
+    refreshing,
+    error,
+    lastUpdated,
+    refresh,
   };
 }
