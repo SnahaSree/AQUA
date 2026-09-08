@@ -2,19 +2,29 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
-  PORT: z.coerce.number().default(4000),
-
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
 
-  MONGODB_URI: z.string().min(1),
+  PORT: z.coerce.number().int().positive().default(5000),
 
-  JWT_SECRET: z.string().min(32),
+  MONGODB_URI: z
+    .string()
+    .min(1, "MONGODB_URI is required"),
 
-  FRONTEND_ORIGIN: z.string().url(),
+  CLIENT_URL: z
+    .string()
+    .url("CLIENT_URL must be a valid URL"),
 
-  ML_SERVICE_URL: z.string().url(),
+  JWT_SECRET: z
+    .string()
+    .min(32, "JWT_SECRET must contain at least 32 characters"),
+
+  JWT_EXPIRES_IN: z.string().default("30m"),
+
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace"])
+    .default("info"),
 });
 
 export const env = envSchema.parse(process.env);
