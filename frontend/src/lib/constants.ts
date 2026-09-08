@@ -1,4 +1,10 @@
 export const navigation = [
+   
+  {
+  label: "Live intelligence",
+  href: "#risk-dashboard",
+  },
+
   {
     label: "Platform",
     href: "#platform",

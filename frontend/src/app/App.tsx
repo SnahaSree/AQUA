@@ -1,5 +1,6 @@
 import { CTA } from "../sections/CTA";
 import { Hero } from "../sections/Hero";
+import { RiskDashboard } from "../features/risk/RiskDashboard";
 import { Metrics } from "../sections/Metrics";
 import { Platform } from "../sections/Platform";
 import { Services } from "../sections/Services";
@@ -14,6 +15,8 @@ function App() {
 
       <main>
         <Hero />
+
+        <RiskDashboard />
 
         <Metrics />
 

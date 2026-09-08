@@ -1,9 +1,12 @@
 import { Menu, Waves, X } from "lucide-react";
 import { useState } from "react";
 import { navigation } from "../../lib/constants";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "../../features/theme/ThemeProvider";
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.07] bg-[#061018]/75 backdrop-blur-xl">
@@ -42,6 +45,21 @@ export function Navbar() {
             Request a briefing
           </a>
         </div>
+
+          <button
+  type="button"
+  onClick={toggleTheme}
+  aria-label={`Switch to ${
+    theme === "dark" ? "light" : "dark"
+  } theme`}
+  className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+>
+  {theme === "dark" ? (
+    <Sun size={18} />
+  ) : (
+    <Moon size={18} />
+  )}
+</button>
 
         <button
           type="button"
