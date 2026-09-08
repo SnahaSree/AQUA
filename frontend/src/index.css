@@ -4,36 +4,82 @@
 
 :root {
   color-scheme: dark;
+
+  --aqua-bg: #061018;
+  --aqua-bg-soft: #0a1721;
+  --aqua-panel: rgba(255, 255, 255, 0.045);
+
+  --aqua-cyan: #67e8f9;
+  --aqua-cyan-strong: #22d3ee;
+
+  --aqua-text: #f8fafc;
+  --aqua-text-muted: #94a3b8;
+
+  --aqua-border: rgba(255, 255, 255, 0.09);
 }
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#061018] text-slate-100 antialiased;
+    margin: 0;
+    min-width: 320px;
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+  }
+
+  button,
+  a,
+  input,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.25);
+    color: white;
+  }
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-cyan-200 via-cyan-300 to-sky-400 bg-clip-text text-transparent;
+  }
 
-* {
-  box-sizing: border-box;
-}
+  .glass {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(18px);
+  }
 
-::selection {
-  background: rgba(34, 211, 238, 0.25);
+  .section-shell {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-6 lg:px-8;
+  }
+
+  .grid-pattern {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
 }
 
 .leaflet-container {
   background: #07131c;
-  border-radius: 1.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -47,5 +93,6 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
