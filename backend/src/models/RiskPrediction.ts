@@ -59,6 +59,11 @@ const riskPredictionSchema = new Schema(
       trim: true,
     },
 
+    sourceReadingAt: {
+  type: Date,
+  required: true,
+},
+
     generatedAt: {
       type: Date,
       required: true,
@@ -86,6 +91,19 @@ riskPredictionSchema.index({
   sensorId: 1,
   generatedAt: -1,
 });
+riskPredictionSchema.index({
+  expiresAt: 1,
+});
+riskPredictionSchema.index(
+  {
+    sensorId: 1,
+    sourceReadingAt: 1,
+  },
+  {
+    unique: true,
+  },
+);
+
 
 export const RiskPrediction = model(
   "RiskPrediction",

@@ -25,6 +25,36 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
+
+ENABLE_SENSOR_SIMULATION: z
+  .enum(["true", "false"])
+  .default("false")
+  .transform((value) => value === "true"),
+
+  ML_SERVICE_URL: z
+  .string()
+  .url()
+  .default("http://127.0.0.1:8000"),
+
+ML_SERVICE_API_KEY: z
+  .string()
+  .min(16)
+  .default("development-ml-service-key-change-me"),
+
+ML_SERVICE_TIMEOUT_MS: z
+  .coerce
+  .number()
+  .int()
+  .positive()
+  .default(5000),
 });
 
-export const env = envSchema.parse(process.env);
+const parsed = envSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error("Invalid environment configuration:");
+  console.error(parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+export const env = parsed.data;

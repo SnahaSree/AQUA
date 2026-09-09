@@ -7,10 +7,16 @@ import { connectDatabase } from "./config/database.js";
 import { configureSecurity } from "./middleware/security.middleware.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import { notFound } from "./middleware/notFound.middleware.js";
+import { startPredictionJob } from "./jobs/prediction.job.js";
 import apiRoutes from "./routes/index.js";
 const logger = pino({
   level: env.LOG_LEVEL,
 });
+
+import {
+  startSensorSimulationJob,
+  generateSensorReadings,
+} from "./jobs/sensor-simulation.job.js";
 
 const app = express();
 
@@ -35,6 +41,7 @@ app.use(errorHandler);
 
 async function bootstrap() {
   await connectDatabase();
+startPredictionJob();
 
   app.listen(env.PORT, () => {
     logger.info(
@@ -47,3 +54,8 @@ bootstrap().catch((error) => {
   logger.error(error);
   process.exit(1);
 });
+
+if (env.ENABLE_SENSOR_SIMULATION) {
+  await generateSensorReadings();
+  startSensorSimulationJob();
+}

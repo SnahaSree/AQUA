@@ -8,6 +8,10 @@ from app.main import app
 client = TestClient(app)
 
 
+headers = {
+    "X-ML-Service-Key": "development-ml-service-key-change-me"
+}
+
 def build_observations():
     start = datetime(
         2026,
@@ -44,6 +48,8 @@ def test_prediction():
             "forecast_hours": 12,
             "observations": build_observations(),
         },
+            headers=headers,
+
     )
 
     assert response.status_code == 200
@@ -62,3 +68,5 @@ def test_prediction():
     }
 
     assert 0 <= body["confidence"] <= 1
+
+    

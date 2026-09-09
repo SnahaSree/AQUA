@@ -3,7 +3,6 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-from tensorflow import keras
 
 from app.core.config import settings
 from app.services.risk_service import (
@@ -28,17 +27,17 @@ class PredictionService:
     def __init__(self) -> None:
         self.model = None
         self.scaler = None
-
-        self._load_artifacts()
+        self._artifacts_loaded = False
 
     def _load_artifacts(self) -> None:
-        model_path = Path(
-            settings.model_path,
-        )
+        if self._artifacts_loaded:
+            return
 
-        scaler_path = Path(
-            settings.scaler_path,
-        )
+        # Import TensorFlow only when prediction is actually requested.
+        from tensorflow import keras
+
+        model_path = Path(settings.model_path)
+        scaler_path = Path(settings.scaler_path)
 
         if model_path.exists():
             self.model = keras.models.load_model(
@@ -49,6 +48,8 @@ class PredictionService:
             self.scaler = joblib.load(
                 scaler_path,
             )
+
+        self._artifacts_loaded = True
 
     def predict(
         self,
@@ -64,6 +65,10 @@ class PredictionService:
 
         confidence = 0.60
 
+        # Only load the ML artifacts when they are actually needed.
+        if len(request.observations) >= 24:
+            self._load_artifacts()
+
         if (
             self.model is not None
             and self.scaler is not None
@@ -77,9 +82,7 @@ class PredictionService:
                         observation.flow_rate,
                         observation.temperature,
                     ]
-                    for observation in request.observations[
-                        -24:
-                    ]
+                    for observation in request.observations[-24:]
                 ],
                 dtype=np.float32,
             )
@@ -106,10 +109,7 @@ class PredictionService:
             )
 
             confidence = round(
-                abs(
-                    probability - 0.5
-                )
-                * 2,
+                abs(probability - 0.5) * 2,
                 3,
             )
 
