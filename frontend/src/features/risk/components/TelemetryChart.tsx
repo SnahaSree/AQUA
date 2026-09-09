@@ -41,33 +41,29 @@ export function TelemetryChart({
   useEffect(() => {
     if (!sensorId) {
       setReadings([]);
+      setError(null);
       return;
     }
 
     const controller =
       new AbortController();
 
-    async function loadReadings() {
-      try {
-        setLoading(true);
-        setError(null);
+    const currentSensorId = sensorId;
 
-            const currentSensorId = sensorId;
+async function loadReadings() {
+  try {
+    setLoading(true);
+    setError(null);
 
-    if (!currentSensorId) {
-      return;
-    }
-
-
-        const response =
-          await getSensorReadings(
-            currentSensorId,
-            {
-              page: 1,
-              limit: 20,
-            },
-            controller.signal,
-          );
+    const response =
+      await getSensorReadings(
+        currentSensorId,
+        {
+          page: 1,
+          limit: 20,
+        },
+        controller.signal,
+      );
 
         setReadings(
           [...response.data].reverse(),
@@ -120,8 +116,9 @@ export function TelemetryChart({
           Water & rainfall trend
         </h3>
 
-        <p className="mt-1 text-xs text-slate-500">
-          {sensorId ?? "Select a monitoring station"}
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {sensorId ??
+            "Select a monitoring station"}
         </p>
       </div>
 

@@ -39,6 +39,7 @@ export interface RiskPrediction {
   predictedWaterLevel: number;
   confidence: number;
   modelVersion: string;
+  sourceReadingAt?: string;
   generatedAt: string;
   expiresAt: string;
   createdAt?: string;

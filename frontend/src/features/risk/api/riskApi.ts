@@ -5,6 +5,7 @@ import type {
   PaginatedResponse,
   RiverDetail,
   RiverSummary,
+  RiskLevel,
   RiskPrediction,
   SensorReading,
 } from "../types/risk.types";
@@ -31,51 +32,110 @@ export interface ReadingParams {
 
 export interface PredictionParams {
   river?: string;
-  riskLevel?:
-    | "low"
-    | "moderate"
-    | "high"
-    | "critical";
+  riskLevel?: RiskLevel;
   page?: number;
   limit?: number;
 }
 
-interface ApiSensorReading {
-  _id: string;
-  sensorId: string;
+interface BackendRiverIntelligence {
   river: string;
-  location: string;
-  latitude: number;
-  longitude: number;
+  riskScore: number;
+  riskLevel: RiskLevel;
+
   waterLevel: number;
   rainfall: number;
   flowRate: number;
   temperature: number;
-  batteryLevel: number;
-  status:
-    | "online"
-    | "offline"
-    | "maintenance"
-    | "warning";
-  recordedAt: string;
-  createdAt?: string;
-  updatedAt?: string;
+
+  trend: string;
+
+  stationsOnline: number;
+  stationsTotal: number;
+
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+
+  latestReadingAt?: string;
+
+  batteryLevel?: number;
+  sensorStatus?: SensorReading["status"];
 }
 
-interface ApiPaginatedSensorResponse {
+interface BackendOverview {
   success: boolean;
-  data: ApiSensorReading[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
+  data: {
+    generatedAt: string;
+
+    summary: {
+      criticalRisk: number;
+      highRisk: number;
+      moderateRisk: number;
+      lowRisk: number;
+      stationsOnline: number;
+      stationsTotal: number;
+    };
+
+    rivers: BackendRiverIntelligence[];
   };
 }
 
-interface ApiSensorResponse {
+interface BackendTrendPoint {
+  timestamp: string;
+  waterLevel?: number;
+  rainfall?: number;
+  flowRate?: number;
+  riskScore?: number;
+  riskLevel?: RiskLevel;
+}
+
+interface BackendTrendResponse {
   success: boolean;
-  data: ApiSensorReading;
+  data: {
+    river: string;
+    hours: number;
+    points: BackendTrendPoint[];
+  };
+}
+
+interface BackendStationResponse {
+  success: boolean;
+  data: {
+    sensorId: string;
+    river: string;
+    location: string;
+
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+
+    reading: {
+      waterLevel: number;
+      rainfall: number;
+      flowRate: number;
+      temperature: number;
+      batteryLevel: number;
+      status:
+        | "online"
+        | "offline"
+        | "maintenance"
+        | "warning";
+      recordedAt: string;
+    };
+
+    prediction?: {
+      riskScore: number;
+      riskLevel: RiskLevel;
+      forecastHours: number;
+      predictedWaterLevel: number;
+      confidence: number;
+      modelVersion: string;
+      generatedAt: string;
+      expiresAt: string;
+    };
+  };
 }
 
 function buildQuery(
@@ -84,7 +144,8 @@ function buildQuery(
     string | number | undefined
   >,
 ): string {
-  const searchParams = new URLSearchParams();
+  const searchParams =
+    new URLSearchParams();
 
   Object.entries(params).forEach(
     ([key, value]) => {
@@ -100,122 +161,230 @@ function buildQuery(
     },
   );
 
-  const query = searchParams.toString();
+  const query =
+    searchParams.toString();
 
-  return query ? `?${query}` : "";
+  return query
+    ? `?${query}`
+    : "";
 }
 
-function normalizeSensor(
-  sensor: ApiSensorReading,
+/*
+|--------------------------------------------------------------------------
+| Station mapping
+|--------------------------------------------------------------------------
+|
+| The current backend exposes individual station
+| intelligence endpoints rather than the previous
+| /intelligence/sensors endpoint.
+|
+*/
+
+const STATIONS = [
+  "AQ-JAM-001",
+  "AQ-PAD-001",
+  "AQ-MEG-001",
+  "AQ-TEE-001",
+] as const;
+
+function normalizeStation(
+  response: BackendStationResponse,
 ): SensorReading {
+  const station =
+    response.data;
+
   return {
-    _id: sensor._id,
-    sensorId: sensor.sensorId,
-    river: sensor.river,
-    location: sensor.location,
+    _id: station.sensorId,
 
-    lat: sensor.latitude,
-    lng: sensor.longitude,
+    sensorId:
+      station.sensorId,
 
-    waterLevel: sensor.waterLevel,
-    rainfall: sensor.rainfall,
-    flowRate: sensor.flowRate,
-    temperature: sensor.temperature,
-    batteryLevel: sensor.batteryLevel,
-    status: sensor.status,
-    recordedAt: sensor.recordedAt,
-    createdAt: sensor.createdAt,
-    updatedAt: sensor.updatedAt,
+    river:
+      station.river,
+
+    location:
+      station.location,
+
+    lat:
+      station.coordinates.lat,
+
+    lng:
+      station.coordinates.lng,
+
+    waterLevel:
+      station.reading.waterLevel,
+
+    rainfall:
+      station.reading.rainfall,
+
+    flowRate:
+      station.reading.flowRate,
+
+    temperature:
+      station.reading.temperature,
+
+    batteryLevel:
+      station.reading.batteryLevel,
+
+    status:
+      station.reading.status,
+
+    recordedAt:
+      station.reading.recordedAt,
   };
 }
 
-function normalizeSensors(
-  response: ApiPaginatedSensorResponse,
-): PaginatedResponse<SensorReading> {
-  return {
-    success: response.success,
-    data: response.data.map(normalizeSensor),
-    pagination: response.pagination,
-  };
+/*
+|--------------------------------------------------------------------------
+| Intelligence overview
+|--------------------------------------------------------------------------
+*/
+
+export async function getIntelligenceOverview() {
+  return apiGet<BackendOverview>(
+    "/intelligence/overview",
+  );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Sensors
+|--------------------------------------------------------------------------
+*/
 
 export async function getSensors(
   params: SensorListParams = {},
   signal?: AbortSignal,
-): Promise<PaginatedResponse<SensorReading>> {
-  const query = buildQuery({
-    river: params.river,
-    status: params.status,
-    page: params.page,
-    limit: params.limit,
-  });
-
-  const response =
-    await apiGet<ApiPaginatedSensorResponse>(
-      `/intelligence/sensors${query}`,
-      signal,
+): Promise<
+  PaginatedResponse<SensorReading>
+> {
+  const responses =
+    await Promise.all(
+      STATIONS.map(
+        (sensorId) =>
+          apiGet<BackendStationResponse>(
+            `/intelligence/stations/${encodeURIComponent(
+              sensorId,
+            )}`,
+            signal,
+          ),
+      ),
     );
 
-  return normalizeSensors(response);
+  let sensors =
+    responses.map(normalizeStation);
+
+  if (params.river) {
+    sensors =
+      sensors.filter(
+        (sensor) =>
+          sensor.river ===
+          params.river,
+      );
+  }
+
+  if (params.status) {
+    sensors =
+      sensors.filter(
+        (sensor) =>
+          sensor.status ===
+          params.status,
+      );
+  }
+
+  const page =
+    params.page ?? 1;
+
+  const limit =
+    params.limit ?? 100;
+
+  const total =
+    sensors.length;
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total / limit,
+      ),
+    );
+
+  const start =
+    (page - 1) *
+    limit;
+
+  const paginated =
+    sensors.slice(
+      start,
+      start + limit,
+    );
+
+  return {
+    success: true,
+
+    data: paginated,
+
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+  };
 }
+
+/*
+|--------------------------------------------------------------------------
+| Single sensor
+|--------------------------------------------------------------------------
+*/
 
 export async function getSensor(
   sensorId: string,
   signal?: AbortSignal,
-): Promise<ApiResponse<SensorReading>> {
+): Promise<
+  ApiResponse<SensorReading>
+> {
   const response =
-    await apiGet<ApiSensorResponse>(
-      `/intelligence/sensors/${encodeURIComponent(
+    await apiGet<BackendStationResponse>(
+      `/intelligence/stations/${encodeURIComponent(
         sensorId,
       )}`,
       signal,
     );
 
   return {
-    success: response.success,
-    data: normalizeSensor(response.data),
+    success:
+      response.success,
+
+    data:
+      normalizeStation(response),
   };
 }
+
+/*
+|--------------------------------------------------------------------------
+| Latest sensor reading
+|--------------------------------------------------------------------------
+*/
 
 export async function getLatestReading(
   sensorId: string,
   signal?: AbortSignal,
-): Promise<ApiResponse<SensorReading>> {
-  const response =
-    await apiGet<ApiSensorResponse>(
-      `/intelligence/sensors/${encodeURIComponent(
-        sensorId,
-      )}/latest`,
-      signal,
-    );
-
-  return {
-    success: response.success,
-    data: normalizeSensor(response.data),
-  };
+): Promise<
+  ApiResponse<SensorReading>
+> {
+  return getSensor(
+    sensorId,
+    signal,
+  );
 }
 
-export async function getReadings(
-  params: ReadingParams = {},
-  signal?: AbortSignal,
-): Promise<PaginatedResponse<SensorReading>> {
-  const query = buildQuery({
-    river: params.river,
-    sensorId: params.sensorId,
-    from: params.from,
-    to: params.to,
-    page: params.page,
-    limit: params.limit,
-  });
-
-  const response =
-    await apiGet<ApiPaginatedSensorResponse>(
-      `/intelligence/sensors/readings${query}`,
-      signal,
-    );
-
-  return normalizeSensors(response);
-}
+/*
+|--------------------------------------------------------------------------
+| Sensor telemetry
+|--------------------------------------------------------------------------
+*/
 
 export async function getSensorReadings(
   sensorId: string,
@@ -224,87 +393,606 @@ export async function getSensorReadings(
     "sensorId"
   > = {},
   signal?: AbortSignal,
-): Promise<PaginatedResponse<SensorReading>> {
-  const query = buildQuery({
-    river: params.river,
-    from: params.from,
-    to: params.to,
-    page: params.page,
-    limit: params.limit,
-  });
-
+): Promise<
+  PaginatedResponse<SensorReading>
+> {
   const response =
-    await apiGet<ApiPaginatedSensorResponse>(
-      `/intelligence/sensors/${encodeURIComponent(
-        sensorId,
-      )}/readings${query}`,
+    await getSensor(
+      sensorId,
       signal,
     );
 
-  return normalizeSensors(response);
+  const sensor =
+    response.data;
+
+  /*
+   * The current station endpoint gives us
+   * the latest reading only.
+   *
+   * Historical telemetry comes from the
+   * river trend endpoint.
+   */
+
+  const trend =
+    await apiGet<BackendTrendResponse>(
+      `/intelligence/rivers/${encodeURIComponent(
+        sensor.river,
+      )}/trend${buildQuery({
+        hours: 24,
+      })}`,
+      signal,
+    );
+
+  const points =
+    trend.data.points;
+
+  let readings: SensorReading[] =
+    points.map(
+      (point, index) => ({
+        _id:
+          `${sensor.sensorId}-${index}`,
+
+        sensorId:
+          sensor.sensorId,
+
+        river:
+          sensor.river,
+
+        location:
+          sensor.location,
+
+        lat:
+          sensor.lat,
+
+        lng:
+          sensor.lng,
+
+        waterLevel:
+          point.waterLevel ??
+          sensor.waterLevel,
+
+        rainfall:
+          point.rainfall ??
+          sensor.rainfall,
+
+        flowRate:
+          point.flowRate ??
+          sensor.flowRate,
+
+        temperature:
+          sensor.temperature,
+
+        batteryLevel:
+          sensor.batteryLevel,
+
+        status:
+          sensor.status,
+
+        recordedAt:
+          point.timestamp,
+
+      }),
+    );
+
+  if (
+    params.from
+  ) {
+    const from =
+      new Date(params.from)
+        .getTime();
+
+    readings =
+      readings.filter(
+        (reading) =>
+          new Date(
+            reading.recordedAt,
+          ).getTime() >=
+          from,
+      );
+  }
+
+  if (
+    params.to
+  ) {
+    const to =
+      new Date(params.to)
+        .getTime();
+
+    readings =
+      readings.filter(
+        (reading) =>
+          new Date(
+            reading.recordedAt,
+          ).getTime() <=
+          to,
+      );
+  }
+
+  const page =
+    params.page ?? 1;
+
+  const limit =
+    params.limit ?? 20;
+
+  const total =
+    readings.length;
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total / limit,
+      ),
+    );
+
+  const start =
+    (page - 1) *
+    limit;
+
+  return {
+    success: true,
+
+    data:
+      readings.slice(
+        start,
+        start + limit,
+      ),
+
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+  };
 }
+
+/*
+|--------------------------------------------------------------------------
+| Generic readings
+|--------------------------------------------------------------------------
+*/
+
+export async function getReadings(
+  params: ReadingParams = {},
+  signal?: AbortSignal,
+): Promise<
+  PaginatedResponse<SensorReading>
+> {
+  if (params.sensorId) {
+    return getSensorReadings(
+      params.sensorId,
+      params,
+      signal,
+    );
+  }
+
+  const sensors =
+    await getSensors(
+      {
+        river:
+          params.river,
+        page: 1,
+        limit: 100,
+      },
+      signal,
+    );
+
+  const allReadings =
+    await Promise.all(
+      sensors.data.map(
+        (sensor) =>
+          getSensorReadings(
+            sensor.sensorId,
+            {
+              from:
+                params.from,
+              to:
+                params.to,
+              page: 1,
+              limit:
+                params.limit ??
+                100,
+            },
+            signal,
+          ),
+      ),
+    );
+
+  const combined =
+    allReadings.flatMap(
+      (result) =>
+        result.data,
+    );
+
+  const page =
+    params.page ?? 1;
+
+  const limit =
+    params.limit ?? 20;
+
+  const total =
+    combined.length;
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total / limit,
+      ),
+    );
+
+  const start =
+    (page - 1) *
+    limit;
+
+  return {
+    success: true,
+
+    data:
+      combined.slice(
+        start,
+        start + limit,
+      ),
+
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Rivers
+|--------------------------------------------------------------------------
+*/
 
 export async function getRivers(
   signal?: AbortSignal,
-): Promise<ApiResponse<RiverSummary[]>> {
-  return apiGet<ApiResponse<RiverSummary[]>>(
-    "/intelligence/rivers",
-    signal,
-  );
+): Promise<
+  ApiResponse<RiverSummary[]>
+> {
+  const response =
+    await apiGet<BackendOverview>(
+      "/intelligence/overview",
+      signal,
+    );
+
+  return {
+    success:
+      response.success,
+
+    data:
+      response.data.rivers.map(
+        (river) => ({
+          river:
+            river.river,
+
+          stationCount:
+            river.stationsTotal,
+
+          latestReading:
+            river.latestReadingAt ??
+            response.data.generatedAt,
+        }),
+      ),
+  };
 }
+
+/*
+|--------------------------------------------------------------------------
+| River detail
+|--------------------------------------------------------------------------
+*/
 
 export async function getRiver(
   river: string,
   signal?: AbortSignal,
-): Promise<ApiResponse<RiverDetail>> {
-  return apiGet<ApiResponse<RiverDetail>>(
-    `/intelligence/rivers/${encodeURIComponent(
-      river,
-    )}`,
-    signal,
-  );
+): Promise<
+  ApiResponse<RiverDetail>
+> {
+  const response =
+    await apiGet<{
+      success: boolean;
+      data: BackendRiverIntelligence;
+    }>(
+      `/intelligence/rivers/${encodeURIComponent(
+        river,
+      )}`,
+      signal,
+    );
+
+  const data =
+    response.data;
+
+  return {
+    success:
+      response.success,
+
+    data: {
+      river:
+        data.river,
+
+      stationCount:
+        data.stationsTotal,
+
+      latestReading:
+        data.latestReadingAt ??
+        new Date().toISOString(),
+
+      averageWaterLevel:
+        data.waterLevel,
+
+      averageRainfall:
+        data.rainfall,
+
+      averageFlowRate:
+        data.flowRate,
+    },
+  };
 }
 
+/*
+|--------------------------------------------------------------------------
+| Predictions
+|--------------------------------------------------------------------------
+*/
 export async function getPredictions(
   params: PredictionParams = {},
   signal?: AbortSignal,
-): Promise<PaginatedResponse<RiskPrediction>> {
-  const query = buildQuery({
-    river: params.river,
-    riskLevel: params.riskLevel,
-    page: params.page,
-    limit: params.limit,
-  });
+): Promise<
+  PaginatedResponse<RiskPrediction>
+> {
+  const sensors =
+    await getSensors(
+      {
+        river:
+          params.river,
+        page: 1,
+        limit: 100,
+      },
+      signal,
+    );
 
-  return apiGet<
-    PaginatedResponse<RiskPrediction>
-  >(
-    `/intelligence/predictions${query}`,
-    signal,
-  );
+  const predictions =
+    await Promise.all(
+      sensors.data.map(
+        async (sensor): Promise<RiskPrediction | null> => {
+          try {
+            const response =
+              await apiGet<BackendStationResponse>(
+                `/intelligence/stations/${encodeURIComponent(
+                  sensor.sensorId,
+                )}`,
+                signal,
+              );
+
+            if (
+              !response.data.prediction
+            ) {
+              return null;
+            }
+
+            const prediction =
+              response.data.prediction;
+
+            const normalizedPrediction: RiskPrediction =
+              {
+                _id:
+                  `${sensor.sensorId}-${prediction.generatedAt}`,
+
+                sensorId:
+                  sensor.sensorId,
+
+                river:
+                  sensor.river,
+
+                location:
+                  sensor.location,
+
+                riskScore:
+                  prediction.riskScore,
+
+                riskLevel:
+                  prediction.riskLevel,
+
+                forecastHours:
+                  prediction.forecastHours,
+
+                predictedWaterLevel:
+                  prediction.predictedWaterLevel,
+
+                confidence:
+                  prediction.confidence,
+
+                modelVersion:
+                  prediction.modelVersion,
+
+                generatedAt:
+                  prediction.generatedAt,
+
+                expiresAt:
+                  prediction.expiresAt,
+
+                sourceReadingAt:
+                  sensor.recordedAt,
+              };
+
+            return normalizedPrediction;
+          } catch {
+            return null;
+          }
+        },
+      ),
+    );
+
+  let result =
+    predictions.filter(
+      (
+        prediction,
+      ): prediction is RiskPrediction =>
+        prediction !== null,
+    );
+
+  if (params.riskLevel) {
+    result =
+      result.filter(
+        (prediction) =>
+          prediction.riskLevel ===
+          params.riskLevel,
+      );
+  }
+
+  const page =
+    params.page ?? 1;
+
+  const limit =
+    params.limit ?? 100;
+
+  const total =
+    result.length;
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total / limit,
+      ),
+    );
+
+  const start =
+    (page - 1) *
+    limit;
+
+  return {
+    success: true,
+
+    data:
+      result.slice(
+        start,
+        start + limit,
+      ),
+
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+    },
+  };
 }
+/*
+|--------------------------------------------------------------------------
+| Latest predictions
+|--------------------------------------------------------------------------
+*/
 
 export async function getLatestPredictions(
   signal?: AbortSignal,
-): Promise<ApiResponse<RiskPrediction[]>> {
-  return apiGet<
-    ApiResponse<RiskPrediction[]>
-  >(
-    "/intelligence/predictions/latest",
-    signal,
-  );
+): Promise<
+  ApiResponse<RiskPrediction[]>
+> {
+  const response =
+    await getPredictions(
+      {
+        page: 1,
+        limit: 100,
+      },
+      signal,
+    );
+
+  return {
+    success:
+      response.success,
+
+    data:
+      response.data,
+  };
 }
+
+/*
+|--------------------------------------------------------------------------
+| Predictions for one sensor
+|--------------------------------------------------------------------------
+*/
 
 export async function getSensorPredictions(
   sensorId: string,
   signal?: AbortSignal,
-): Promise<ApiResponse<RiskPrediction[]>> {
-  return apiGet<
-    ApiResponse<RiskPrediction[]>
-  >(
-    `/intelligence/predictions/${encodeURIComponent(
-      sensorId,
-    )}`,
-    signal,
-  );
+): Promise<
+  ApiResponse<RiskPrediction[]>
+> {
+  const response =
+    await apiGet<BackendStationResponse>(
+      `/intelligence/stations/${encodeURIComponent(
+        sensorId,
+      )}`,
+      signal,
+    );
+
+  const prediction =
+    response.data.prediction;
+
+  if (!prediction) {
+    return {
+      success:
+        response.success,
+
+      data: [],
+    };
+  }
+
+  const sensor =
+    response.data;
+
+  return {
+    success:
+      response.success,
+
+    data: [
+      {
+        _id:
+          `${sensor.sensorId}-${prediction.generatedAt}`,
+
+        sensorId:
+          sensor.sensorId,
+
+        river:
+          sensor.river,
+
+        location:
+          sensor.location,
+
+        riskScore:
+          prediction.riskScore,
+
+        riskLevel:
+          prediction.riskLevel,
+
+        forecastHours:
+          prediction.forecastHours,
+
+        predictedWaterLevel:
+          prediction.predictedWaterLevel,
+
+        confidence:
+          prediction.confidence,
+
+        modelVersion:
+          prediction.modelVersion,
+
+        generatedAt:
+          prediction.generatedAt,
+
+        expiresAt:
+          prediction.expiresAt,
+
+        sourceReadingAt:
+          sensor.reading.recordedAt,
+      },
+    ],
+  };
 }

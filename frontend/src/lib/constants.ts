@@ -2,7 +2,7 @@ export const navigation = [
    
   {
   label: "Live intelligence",
-  href: "#risk-dashboard",
+  href: "/intelligence",
   },
 
   {
