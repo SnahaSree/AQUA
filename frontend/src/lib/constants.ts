@@ -11,16 +11,19 @@ export const navigation = [
   },
   {
     label: "Services",
-    href: "#services",
+    href: "/services",
   },
   {
     label: "Technology",
-    href: "#technology",
+    href: "/technology",
   },
   {
     label: "About",
-    href: "#about",
+    href: "/about",
   },
+
+    { label: "Case Studies", href: "/case-studies" },
+      { label: "Contact", href: "/contact" },
 ];
 
 export const metrics = [

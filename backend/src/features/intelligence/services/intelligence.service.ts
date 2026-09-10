@@ -256,9 +256,8 @@ export async function getRiverIntelligence(
       latestPrediction?.generatedAt?.toISOString() ?? null,
 
     predictionFreshness: getPredictionFreshness(
-      
-      latestPrediction?.generatedAt ,
-      latestPrediction?.expiresAt ,
+      latestPrediction?.expiresAt,
+      latestPrediction?.generatedAt,
     ),
   };
 }

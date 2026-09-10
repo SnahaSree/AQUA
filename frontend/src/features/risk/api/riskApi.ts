@@ -10,6 +10,25 @@ import type {
   SensorReading,
 } from "../types/risk.types";
 
+import type { CaseStudy } from "../../public/case-studies/components/CaseStudyCard";
+export async function getCaseStudies(): Promise<CaseStudy[]> {
+  const response = await apiGet<{ data: CaseStudy[] }>(
+    "/case-studies",
+  );
+
+  return response.data;
+}
+
+export async function getCaseStudy(
+  slug: string,
+): Promise<CaseStudy> {
+  const response = await apiGet<{ data: CaseStudy }>(
+    `/case-studies/${encodeURIComponent(slug)}`,
+  );
+
+  return response.data;
+}
+
 export interface SensorListParams {
   river?: string;
   status?:

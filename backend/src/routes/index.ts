@@ -6,16 +6,20 @@ import authRoutes from "../features/auth/auth.routes.js";
 import intelligenceRoutes from "../features/intelligence/routes/intelligence.routes.js";
 import predictionRoutes from "./prediction.routes.js";
 import mlHealthRoutes from "./ml-health.routes.js";
+import contactRoutes from "../features/contact/contact.routes.js";
+import caseStudyRoutes from "../features/case-studies/case-study.routes.js";
 
 const router = Router();
 
 router.use("/health", healthRoutes);
 router.use("/auth", authRoutes);
 router.use("/ml-health", mlHealthRoutes);
+router.use("/contact", contactRoutes);
 router.use("/intelligence", intelligenceRoutes);
 router.use(
   "/predictions",
   predictionRoutes,
 );
+router.use("/case-studies", caseStudyRoutes);
 
 export default router;

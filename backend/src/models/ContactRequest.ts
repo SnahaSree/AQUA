@@ -32,9 +32,9 @@ const contactRequestSchema = new Schema(
     requestType: {
       type: String,
       enum: [
-        "briefing",
+        "demo",
         "partnership",
-        "deployment",
+        "research",
         "general",
       ],
       default: "general",

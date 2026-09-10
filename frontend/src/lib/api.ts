@@ -8,7 +8,9 @@ import type {
 } from "../features/intelligence/types/intelligence.types";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL:
+    import.meta.env.VITE_API_BASE_URL ??
+    "http://localhost:5000/api/v1",
 });
 
 // ------------------------------------
@@ -19,7 +21,7 @@ export async function getIntelligenceOverview(): Promise<IntelligenceOverview> {
   const response = await api.get<{
     success: boolean;
     data: IntelligenceOverview;
-  }>("/api/v1/intelligence/overview");
+  }>("/intelligence/overview");
 
   return response.data.data;
 }
@@ -31,9 +33,9 @@ export async function getRiverSummary(
     success: boolean;
     data: RiverSummary;
   }>(
-    `/api/v1/intelligence/rivers/${encodeURIComponent(
+    `/intelligence/rivers/${encodeURIComponent(
       river,
-    )}`,
+    )}/summary`,
   );
 
   return response.data.data;
@@ -51,7 +53,7 @@ export async function getRiskHistory(
       points: RiverRiskHistory["points"];
     };
   }>(
-    `/api/v1/intelligence/rivers/${encodeURIComponent(
+    `/intelligence/rivers/${encodeURIComponent(
       river,
     )}/trend`,
     {
@@ -75,7 +77,7 @@ export async function getStationIntelligence(
     success: boolean;
     data: StationIntelligence;
   }>(
-    `/api/v1/intelligence/stations/${encodeURIComponent(
+    `/intelligence/stations/${encodeURIComponent(
       sensorId,
     )}`,
   );

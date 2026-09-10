@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getIntelligenceOverview } from "../../../lib/api";
 
@@ -25,7 +25,16 @@ export function useIntelligenceOverview(
   const [error, setError] =
     useState<string | null>(null);
 
+  const loadingRef =
+    useRef(false);
+
   const load = useCallback(async () => {
+    if (loadingRef.current) {
+      return;
+    }
+
+    loadingRef.current = true;
+
     try {
       setError(null);
 
@@ -38,6 +47,7 @@ export function useIntelligenceOverview(
         "Unable to load intelligence data.",
       );
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, []);
@@ -45,12 +55,10 @@ export function useIntelligenceOverview(
   useEffect(() => {
     void load();
 
-    const interval = window.setInterval(
-      () => {
+    const interval =
+      window.setInterval(() => {
         void load();
-      },
-      refreshInterval,
-    );
+      }, refreshInterval);
 
     return () => {
       window.clearInterval(interval);

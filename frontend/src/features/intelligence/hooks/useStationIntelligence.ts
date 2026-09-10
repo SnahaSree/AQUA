@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   getStationIntelligence,
@@ -20,9 +24,14 @@ export function useStationIntelligence(
   const [error, setError] =
     useState<string | null>(null);
 
+  const requestInFlight =
+    useRef(false);
+
   useEffect(() => {
     if (!sensorId) {
       setData(null);
+      setLoading(false);
+      setError(null);
       return;
     }
 
@@ -31,6 +40,12 @@ export function useStationIntelligence(
     let cancelled = false;
 
     async function load() {
+      if (requestInFlight.current) {
+        return;
+      }
+
+      requestInFlight.current = true;
+
       try {
         setLoading(true);
         setError(null);
@@ -50,6 +65,8 @@ export function useStationIntelligence(
           );
         }
       } finally {
+        requestInFlight.current = false;
+
         if (!cancelled) {
           setLoading(false);
         }

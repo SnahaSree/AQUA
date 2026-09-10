@@ -67,3 +67,21 @@ export async function apiGet<T>(
 
   return parseResponse<T>(response);
 }
+export async function apiPost<TResponse, TBody>(
+  path: string,
+  body: TBody,
+): Promise<TResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}${path}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    },
+  );
+
+  return parseResponse<TResponse>(response);
+}
