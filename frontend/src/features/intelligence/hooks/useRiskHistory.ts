@@ -19,12 +19,18 @@ export function useRiskHistory(
   const [error, setError] =
     useState<string | null>(null);
 
-  useEffect(() => {
-    if (!river) {
-      setData(null);
-      return;
-    }
+useEffect(() => {
+  console.log(
+    "[useRiskHistory] river:",
+    river,
+    "hours:",
+    hours,
+  );
 
+  if (!river) {
+    setData(null);
+    return;
+  }
     const selectedRiver = river;
 
     let cancelled = false;
